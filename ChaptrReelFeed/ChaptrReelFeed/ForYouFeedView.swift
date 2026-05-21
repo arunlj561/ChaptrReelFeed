@@ -25,7 +25,7 @@ struct ForYouFeedView: View {
                         VideoFeedItemView(
                             video: video,
                             player: cacheManager.getPlayer(for: video),
-                            isActive: video.id == activeVideoID,
+                            isActiveVideoId: activeVideoID ?? 0,
                             onVideoEnded: {                                    
                                     // Find the index of the video that just finished
                                     if let currentIndex = videos.firstIndex(where: { $0.id == video.id }),
