@@ -109,7 +109,17 @@ struct VideoFeedItemView: View {
                 onVideoEnded()
             }
         }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase != .active {
+                // Instantly pauses video/audio if the user hits the home button or locks screen
+                player?.pause()
             } else if isActive {
+                // Resumes playback automatically ONLY if this specific cell is still the active one on screen
+                if let player = player, player.rate == 0 && isPlayerReady {
+                    player.play()
+                }
+            }
+        }
     }
     
     private func handlePlayback(shouldPlay: Bool) {
