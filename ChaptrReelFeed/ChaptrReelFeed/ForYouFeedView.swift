@@ -106,27 +106,55 @@ struct VideoOverlayView: View {
     let video: VideoItem
     let time: String
     
-    var body: some View {        
+    // 🎯 State to track if the description text is expanded or collapsed
+    @State private var isExpanded: Bool = false
+    
+    var body: some View {
         VStack {
             Spacer()
             HStack(alignment: .bottom) {
-                // MARK: - Left Content
-                VStack(alignment: .leading,
-                       spacing: 12){
+                // MARK: - Left Content (Metadata Stack)
+                VStack(alignment: .leading, spacing: 8) {
+                    // Video Title
                     Text(video.title)
                         .font(.headline)
                         .fontWeight(.bold)
-                        Text(time)
-                                .font(.system(.subheadline, design: .monospaced))
-                                .bold()
+                    
+                    // 🎯 Expandable Description Block
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(video.description)
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.8))
+                            // If expanded, remove limits. If collapsed, limit to 2 lines.
+                            .lineLimit(isExpanded ? nil : 2)
+                        
+                        // "Show More" / "Less" Button Layer
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                isExpanded.toggle()
+                            }
+                        }) {
+                            Text(isExpanded ? "Show Less" : "...more")
+                                .font(.subheadline)
+                                .fontWeight(.bold)
                                 .foregroundColor(.white)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(.ultraThinMaterial) // Gives it that modern glass look
-                                .cornerRadius(20)                                
-                                .padding(.trailing, 16)
-                        }// VStack
-                       .foregroundStyle(.white)
+                                .padding(.vertical, 2)
+                        }
+                    }
+                    .padding(.bottom, 4)
+                    
+                    // Dynamic Countdown Time Label Pill
+                    Text(time)
+                        .font(.system(.subheadline, design: .monospaced))
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(.ultraThinMaterial))
+                }
+                .foregroundStyle(.white)
+                .padding(.trailing, 24) // Keeps metadata from overlapping right action buttons
+                
                 Spacer()
                 
                 // MARK: - Right Actions
@@ -143,14 +171,13 @@ struct VideoOverlayView: View {
                         icon: "arrowshape.turn.up.right.fill",
                         title: "Share"
                     )
-                } // Vstack
-            }// Hstack
+                } // VStack
+            } // HStack
             .padding(.horizontal, 16)
-            .padding(.bottom, 40)
+            .padding(.bottom, UIApplication.shared.windows.first?.safeAreaInsets.bottom ?? 24)
         }
     }
 }
-
 // MARK: - Action Button
 
 struct ActionButton: View {

@@ -29,6 +29,8 @@ struct VideoItem: Codable, Identifiable {
     let url: String
 
     let thumbnail: String
+    
+    let description: String
 
 }
 struct VideoCatalog: Decodable, Sendable {
