@@ -60,6 +60,47 @@ struct VideoFeedItemView: View {
                     .scaleEffect(1.5)
                     .tint(.white)
             }
+            if isError {
+                VStack(spacing: 16) {
+                    // Warning Icon
+                    Image(systemName: "wifi.exclamationmark")
+                        .font(.system(size: 48, weight: .medium))
+                        .foregroundColor(.white.opacity(0.7))
+                    
+                    // Error Messages
+                    Text("Feed Unreachable")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        
+                    Text("The video couldn't stream properly. Please check your internet connection and try again.")
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.6))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                        
+                    // Tap to Retry interaction button
+                    Button(action: {
+                        // Flips the error switch off and forces the item to attempt connection again
+                        self.isError = false
+                        self.isLoading = true
+                        self.handlePlayback(shouldPlay: isActive)
+                    }) {
+                        Text("Tap to Retry")
+                            .font(.subheadline)
+                            .bold()
+                            .foregroundColor(.black)
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 10)
+                            .background(Color.white)
+                            .cornerRadius(20)
+                    }
+                    .padding(.top, 8)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // Dark dimmed overlay masks the thumbnail seamlessly when structural streams fail
+                .background(Color.black.opacity(0.85))
+                .transition(.opacity.animation(.easeInOut(duration: 0.2)))
+            }
             
             // MARK: - Dark Overlay
             
