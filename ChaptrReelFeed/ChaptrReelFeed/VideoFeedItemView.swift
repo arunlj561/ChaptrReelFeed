@@ -11,6 +11,8 @@ import SwiftUI
 import Combine
 
 struct VideoFeedItemView: View {
+    @Environment(\.scenePhase) private var scenePhase
+    
     let video: VideoItem
     let player: AVPlayer?
     var isActive: Bool
@@ -107,6 +109,7 @@ struct VideoFeedItemView: View {
                 onVideoEnded()
             }
         }
+            } else if isActive {
     }
     
     private func handlePlayback(shouldPlay: Bool) {
