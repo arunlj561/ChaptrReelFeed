@@ -15,6 +15,9 @@ struct VideoFeedItemView: View {
     let player: AVPlayer?
     var isActive: Bool
     var onVideoEnded: () -> Void
+    @State private var secondsRemaining: Int = 0
+        // A 1-second interval timer running on the main runloop
+    @State private var countdownTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
     @State private var isLoading = true
     @State private var isError = false
@@ -68,13 +71,31 @@ struct VideoFeedItemView: View {
             )
             .ignoresSafeArea()
             .allowsHitTesting(false)
+            Spacer()
+            // The Floating Glassmorphic Timer Pill
+            
             // MARK: - Overlay Content
-            VideoOverlayView(video: video)
+            VideoOverlayView(video: video, time: formatTime(secondsRemaining))
         }
-        
+        .onAppear {
+            // Initialize the countdown clock with the video's JSON duration
+            self.secondsRemaining = video.duration
+        }
         // Respond instantly when the feed scrolls to this item
         .onChange(of: isActive, initial: true) { _, newValue in
             handlePlayback(shouldPlay: newValue)
+            if newValue {
+                // Reset the timer cleanly if the user swipes away and comes back
+                self.secondsRemaining = video.duration
+            }
+        }
+        .onReceive(countdownTimer) { _ in
+            // Only count down if this specific screen item is active and playing
+            guard isActive, isPlayerReady, let player = player, player.rate != 0 else { return }
+            
+            if secondsRemaining > 0 {
+                secondsRemaining -= 1
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)) { notification in
             guard let currentItem = player?.currentItem,
@@ -125,6 +146,13 @@ struct VideoFeedItemView: View {
             self.isPlayerReady = false
             self.isLoading = false
         }
+    }
+    
+    // 🎯 HELPER FUNCTION TO FORMAT SECONDS (e.g., 125 -> "02:05")
+    private func formatTime(_ totalSeconds: Int) -> String {
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        return String(format: "%02d:%02d", minutes, seconds)
     }
     
 }

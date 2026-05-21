@@ -89,6 +89,7 @@ struct ForYouFeedView: View {
 struct VideoOverlayView: View {
     
     let video: VideoItem
+    let time: String
     
     var body: some View {        
         VStack {
@@ -100,9 +101,15 @@ struct VideoOverlayView: View {
                     Text(video.title)
                         .font(.headline)
                         .fontWeight(.bold)
-                    Text("\(video.duration)s")
-                        .font(.subheadline)
-                        .foregroundStyle(.gray)
+                        Text(time)
+                                .font(.system(.subheadline, design: .monospaced))
+                                .bold()
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(.ultraThinMaterial) // Gives it that modern glass look
+                                .cornerRadius(20)                                
+                                .padding(.trailing, 16)
                         }// VStack
                        .foregroundStyle(.white)
                 Spacer()
