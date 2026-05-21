@@ -76,7 +76,16 @@ struct VideoFeedItemView: View {
         .onChange(of: isActive, initial: true) { _, newValue in
             handlePlayback(shouldPlay: newValue)
         }
-        
+        .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)) { notification in
+            guard let currentItem = player?.currentItem,
+                  let notificationItem = notification.object as? AVPlayerItem,
+                  currentItem == notificationItem else { return }
+            
+            // Explicitly notify the parent container view that this video is done!
+            DispatchQueue.main.async {
+                onVideoEnded()
+            }
+        }
     }
     
     private func handlePlayback(shouldPlay: Bool) {

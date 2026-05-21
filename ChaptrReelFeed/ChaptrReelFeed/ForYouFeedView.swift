@@ -25,7 +25,18 @@ struct ForYouFeedView: View {
                         VideoFeedItemView(
                             video: video,
                             player: cacheManager.getPlayer(for: video),
-                            isActive: video.id == activeVideoID
+                            isActive: video.id == activeVideoID,
+                            onVideoEnded: {                                    
+                                    // Find the index of the video that just finished
+                                    if let currentIndex = videos.firstIndex(where: { $0.id == video.id }),
+                                       currentIndex + 1 < videos.count {
+                                        
+                                        // Animate moving to the next item so it snaps smoothly
+                                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                            activeVideoID = videos[currentIndex + 1].id
+                                        }
+                                    }
+                                }
                         )
                         .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
                         .id(video.id)
@@ -37,7 +48,15 @@ struct ForYouFeedView: View {
             .scrollPosition(id: $activeVideoID)
             .scrollClipDisabled()
             .ignoresSafeArea()
-            .background(Color.black)            
+            .background(Color.black)
+            .onChange(of: activeVideoID) { _, newID in
+                guard let newID = newID,
+                      let index = videos.firstIndex(where: { $0.id == newID }) else { return }
+                
+                currentIndex = index
+                // Lifecycle management: pauses past items, loads ahead 2 items
+                cacheManager.updateLifecycle(currentIndex: currentIndex)
+            }
             .onAppear {
                 loadJSONData()
             }
