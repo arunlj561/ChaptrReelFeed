@@ -12,7 +12,6 @@ import AVFoundation
 
 // MARK: - ForYouFeedView
 struct ForYouFeedView: View {
-    
     @State private var cacheManager = VideoCacheManager()
     @State private var videos: [VideoItem] = []
     @State private var activeVideoID: Int?
@@ -23,7 +22,11 @@ struct ForYouFeedView: View {
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(spacing: 0) {
                     ForEach(Array(videos.enumerated()), id: \.element.id) { index, video in
-                        
+                        VideoFeedItemView(
+                            video: video,
+                            player: cacheManager.getPlayer(for: video),
+                            isActive: video.id == activeVideoID
+                        )
                         .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
                         .id(video.id)
                     }
