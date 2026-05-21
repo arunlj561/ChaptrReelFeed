@@ -92,12 +92,21 @@ struct VideoFeedItemView: View {
             }
         }
         .onReceive(countdownTimer) { _ in
-            // Only count down if this specific screen item is active and playing
+            // Only query the player if this video item is active on screen and playing
             guard isActive, isPlayerReady, let player = player, player.rate != 0 else { return }
             
-            if secondsRemaining > 0 {
-                secondsRemaining -= 1
-            }
+            // Extract the current render time directly from the active AVPlayer engine
+            let currentTimeInSeconds = player.currentTime().seconds
+            let totalDurationInSeconds = player.currentItem?.duration.seconds ?? Double(video.duration)
+            
+            // Safety check for streaming initialization states
+            let finalDuration = totalDurationInSeconds.isNaN ? Double(video.duration) : totalDurationInSeconds
+            
+            // Compute the remaining seconds safely on the fly
+            let remaining = max(0, Int(ceil(finalDuration - currentTimeInSeconds)))
+            
+            // Update the UI state
+            self.secondsRemaining = remaining
         }
         .onReceive(NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)) { notification in
             guard let currentItem = player?.currentItem,
