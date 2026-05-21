@@ -13,6 +13,7 @@ import AVFoundation
 // MARK: - ForYouFeedView
 struct ForYouFeedView: View {
     
+    @State private var cacheManager = VideoCacheManager()
     @State private var videos: [VideoItem] = []
     @State private var activeVideoID: Int?
     @State private var currentIndex: Int = 0
