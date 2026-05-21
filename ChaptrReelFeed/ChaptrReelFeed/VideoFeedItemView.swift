@@ -15,8 +15,12 @@ struct VideoFeedItemView: View {
     
     let video: VideoItem
     let player: AVPlayer?
-    var isActive: Bool
+    var isActiveVideoId: Int
     var onVideoEnded: () -> Void
+    private var isActive: Bool {
+        video.id == isActiveVideoId
+    }
+    
     @State private var secondsRemaining: Int = 0
         // A 1-second interval timer running on the main runloop
     @State private var countdownTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -41,7 +45,7 @@ struct VideoFeedItemView: View {
             .ignoresSafeArea()
             
             // Middleground: Render the video view layer only when the stream is ready
-            if let player = player, isPlayerReady {
+            if isActive, let player = player {
                 CustomVideoPlayerView(player: player)
                     .ignoresSafeArea()
                     .transition(.opacity.animation(.linear(duration: 0.2)))
@@ -124,6 +128,40 @@ struct VideoFeedItemView: View {
             // Initialize the countdown clock with the video's JSON duration
             self.secondsRemaining = video.duration
         }
+        .task(id: isActiveVideoId) {
+                    if isActive {
+                        // The moment this ID matches, force immediate play execution
+                        player?.play()
+                    } else {
+                        // The moment it moves off-screen, instantly pause and rewind
+                        player?.pause()
+                        player?.seek(to: .zero)
+                        self.isPlayerReady = false
+                    }
+        }
+        .task(id: player) {
+                    guard let player = player else { return }
+                    
+                    // Loop and wait natively for AVPlayer to warm up its network stream
+                    while isActive {
+                        if player.currentItem?.status == .readyToPlay {
+                            self.isLoading = false
+                            self.isPlayerReady = false // Set true if you hide via opacity layout filters
+                            
+                            if isActive {
+                                player.play() // Double-check safety play call
+                            }
+                            break // Stream is stable, exit monitoring loop safely
+                        } else if player.currentItem?.status == .failed {
+                            self.isLoading = false
+                            self.isError = true
+                            break
+                        }
+                        
+                        // Sleep for 100 milliseconds before inspecting player stream frames again
+                        try? await Task.sleep(for: .milliseconds(100))
+                    }
+                }
         // Respond instantly when the feed scrolls to this item
         .onChange(of: isActive, initial: true) { _, newValue in
             handlePlayback(shouldPlay: newValue)
@@ -192,9 +230,24 @@ struct VideoFeedItemView: View {
                 .sink { status in
                     switch status {
                     case .readyToPlay:
-                        self.isLoading = false
-                        self.isPlayerReady = true
-                        player.play()
+                        DispatchQueue.main.async {
+                                self.isLoading = false
+                                self.isPlayerReady = true
+                                
+                                // 🎯 AUTOPLAY ENFORCEMENT:
+                                // If this item is flagged active on launch, trigger immediate execution
+                                if self.isActive {
+                                    self.player?.play()
+                                    
+                                    // Instantly synchronize your direct heartbeat time layout properties
+                                    if let player = self.player {
+                                        let current = player.currentTime().seconds
+                                        let duration = player.currentItem?.duration.seconds ?? Double(video.duration)
+                                        let finalDuration = duration.isNaN ? Double(video.duration) : duration
+                                        self.secondsRemaining = max(0, Int(ceil(finalDuration - current)))
+                                    }
+                                }
+                            }
                     case .failed:
                         self.isLoading = false
                         self.isError = true
