@@ -56,6 +56,7 @@ struct ForYouFeedView: View {
                 currentIndex = index
                 // Lifecycle management: pauses past items, loads ahead 2 items
                 cacheManager.updateLifecycle(currentIndex: currentIndex)
+                UserDefaults.standard.set(newID, forKey: "last_watched_video_id")
             }
             .onAppear {
                 loadJSONData()
@@ -70,17 +71,31 @@ struct ForYouFeedView: View {
     
     private func loadJSONData() {
         guard let url = Bundle.main.url(forResource: "for-you", withExtension: "json"),
-              let data = try? Data(contentsOf: url),
-              let response = try? JSONDecoder().decode(FeedResponse.self, from: data) else {
-            return
-        }
-        self.videos = response.videos
-        self.cacheManager.setVideos(response.videos)
+                  let data = try? Data(contentsOf: url),
+                  let response = try? JSONDecoder().decode(FeedResponse.self, from: data) else {
+                return
+            }
         
-        if let firstVideo = response.videos.first {
-            self.activeVideoID = firstVideo.id
-            self.cacheManager.updateLifecycle(currentIndex: 0)
-        }
+            self.videos = response.videos
+            self.cacheManager.setVideos(response.videos)
+            
+            // 🎯 RESTORE PREVIOUS STATE LOCALLY ON LAUNCH:
+        if let savedID = Int(UserDefaults.standard.string(forKey: "last_watched_video_id") ?? "0") ,
+               videos.contains(where: { $0.id == savedID }) {
+                
+                // If a valid saved video exists from their previous session, restore it
+                self.activeVideoID = savedID
+                if let index = videos.firstIndex(where: { $0.id == savedID }) {
+                    self.currentIndex = index
+                    self.cacheManager.updateLifecycle(currentIndex: index)
+                }
+                print("💾 Restored user session smoothly at video index: \(currentIndex)")
+                
+            } else if let firstVideo = response.videos.first {
+                // Fall back to the very first video if no history is found
+                self.activeVideoID = firstVideo.id
+                self.cacheManager.updateLifecycle(currentIndex: 0)
+            }
     }
 }
 
