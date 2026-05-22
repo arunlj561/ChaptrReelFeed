@@ -106,9 +106,11 @@ struct VideoOverlayView: View {
     let video: VideoItem
     let time: String
     
-    // 🎯 State to track if the description text is expanded or collapsed
+    // State to track if the description text is expanded or collapsed
     @State private var isExpanded: Bool = false
-    
+    @Binding var showAlert: Bool
+    @Binding var secondsRemaining: Int
+            
     var body: some View {
         VStack {
             Spacer()
@@ -125,7 +127,6 @@ struct VideoOverlayView: View {
                         Text(video.description)
                             .font(.subheadline)
                             .foregroundColor(.white.opacity(0.8))
-                            // If expanded, remove limits. If collapsed, limit to 2 lines.
                             .lineLimit(isExpanded ? nil : 2)
                         
                         // "Show More" / "Less" Button Layer
@@ -143,6 +144,7 @@ struct VideoOverlayView: View {
                     }
                     .padding(.bottom, 4)
                     
+
                     // Dynamic Countdown Time Label Pill
                     Text(time)
                         .font(.system(.subheadline, design: .monospaced))
@@ -161,20 +163,23 @@ struct VideoOverlayView: View {
                 VStack(spacing: 24) {
                     ActionButton(
                         icon: "heart.fill",
-                        title: "12.4K"
+                        title: "12.4K",
+                        action: { showAlert = true }
                     )
                     ActionButton(
                         icon: "message.fill",
-                        title: "542"
+                        title: "542",
+                        action: { showAlert = true }
                     )
                     ActionButton(
                         icon: "arrowshape.turn.up.right.fill",
-                        title: "Share"
+                        title: "Share",
+                        action: { showAlert = true }
                     )
                 } // VStack
             } // HStack
             .padding(.horizontal, 16)
-            .padding(.bottom, UIApplication.shared.windows.first?.safeAreaInsets.bottom ?? 24)
+            .padding(.bottom, 24)
         }
     }
 }
@@ -184,9 +189,11 @@ struct ActionButton: View {
     
     let icon: String
     let title: String
+    let action: () -> Void
     var body: some View {
         VStack(spacing: 8) {
             Button {
+                action()
             } label: {
                 Image(systemName: icon)
                     .font(.system(size: 28))
