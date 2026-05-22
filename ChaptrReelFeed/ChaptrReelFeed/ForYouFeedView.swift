@@ -105,9 +105,20 @@ struct VideoOverlayView: View {
     
     let video: VideoItem
     let time: String
+    let player: AVPlayer?
     
-    // 🎯 State to track if the description text is expanded or collapsed
+    // State to track if the description text is expanded or collapsed
     @State private var isExpanded: Bool = false
+    @Binding var showAlert: Bool
+    @Binding var secondsRemaining: Int
+    
+    private var progressRatio: Double {
+        guard let player = player else { return 0.0 }
+        let currentTime = player.currentTime().seconds
+        let duration = player.currentItem?.duration.seconds ?? Double(video.duration)
+        let finalDuration = duration.isNaN || duration == 0 ? Double(video.duration) : duration
+        return min(max(currentTime / finalDuration, 0.0), 1.0)
+    }
     
     var body: some View {
         VStack {
@@ -125,7 +136,7 @@ struct VideoOverlayView: View {
                         Text(video.description)
                             .font(.subheadline)
                             .foregroundColor(.white.opacity(0.8))
-                            // If expanded, remove limits. If collapsed, limit to 2 lines.
+                        // If expanded, remove limits. If collapsed, limit to 2 lines.
                             .lineLimit(isExpanded ? nil : 2)
                         
                         // "Show More" / "Less" Button Layer
@@ -142,6 +153,21 @@ struct VideoOverlayView: View {
                         }
                     }
                     .padding(.bottom, 4)
+                    
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            Capsule()
+                                .fill(Color.white.opacity(0.2))
+                                .frame(height: 3)
+                            
+                            Capsule()
+                                .fill(Color.white)
+                                .frame(width: geometry.size.width * CGFloat(progressRatio), height: 3)
+                                .animation(.linear(duration: 0.1), value: progressRatio)
+                        }
+                    }
+                    .frame(height: 3)
+                    .padding(.vertical, 4)
                     
                     // Dynamic Countdown Time Label Pill
                     Text(time)
@@ -161,20 +187,23 @@ struct VideoOverlayView: View {
                 VStack(spacing: 24) {
                     ActionButton(
                         icon: "heart.fill",
-                        title: "12.4K"
+                        title: "12.4K",
+                        action: { showAlert = true }
                     )
                     ActionButton(
                         icon: "message.fill",
-                        title: "542"
+                        title: "542",
+                        action: { showAlert = true }
                     )
                     ActionButton(
                         icon: "arrowshape.turn.up.right.fill",
-                        title: "Share"
+                        title: "Share",
+                        action: { showAlert = true }
                     )
                 } // VStack
             } // HStack
             .padding(.horizontal, 16)
-            .padding(.bottom, UIApplication.shared.windows.first?.safeAreaInsets.bottom ?? 24)
+            .padding(.bottom, 24)
         }
     }
 }
@@ -184,9 +213,11 @@ struct ActionButton: View {
     
     let icon: String
     let title: String
+    let action: () -> Void
     var body: some View {
         VStack(spacing: 8) {
             Button {
+                action()
             } label: {
                 Image(systemName: icon)
                     .font(.system(size: 28))

@@ -22,13 +22,17 @@ struct VideoFeedItemView: View {
     }
     
     @State private var secondsRemaining: Int = 0
-        // A 1-second interval timer running on the main runloop
+    // A 1-second interval timer running on the main runloop
     @State private var countdownTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     
     @State private var isLoading = true
     @State private var isError = false
     @State private var isPlayerReady = false
     @State private var cancellables = Set<AnyCancellable>()
+    @State private var showComingSoonAlert = false
+    @State private var isDraggingHorizontal = false
+    @State private var dragOffset: CGFloat = 0
+    @State private var seekPreviewSeconds: Int = 0
     
     var body: some View {
         ZStack {
@@ -75,13 +79,13 @@ struct VideoFeedItemView: View {
                     Text("Feed Unreachable")
                         .font(.headline)
                         .foregroundColor(.white)
-                        
+                    
                     Text("The video couldn't stream properly. Please check your internet connection and try again.")
                         .font(.subheadline)
                         .foregroundColor(.white.opacity(0.6))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
-                        
+                    
                     // Tap to Retry interaction button
                     Button(action: {
                         // Flips the error switch off and forces the item to attempt connection again
@@ -122,46 +126,113 @@ struct VideoFeedItemView: View {
             // The Floating Glassmorphic Timer Pill
             
             // MARK: - Overlay Content
-            VideoOverlayView(video: video, time: formatTime(secondsRemaining))
+            VideoOverlayView(
+                video: video,
+                time: formatTime(secondsRemaining),
+                player: player,
+                showAlert: $showComingSoonAlert,
+                secondsRemaining: $secondsRemaining
+            )
+            if isDraggingHorizontal {
+                VStack(spacing: 12) {
+                    Image(systemName: dragOffset > 0 ? "goforward" : "gobackward")
+                        .font(.system(size: 40, weight: .bold))
+                        .foregroundColor(.white)
+                    
+                    Text("\(dragOffset > 0 ? "+" : "")\(seekPreviewSeconds)s")
+                        .font(.system(.title2, design: .rounded))
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                    
+                    Text("Release to skip")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.6))
+                }
+                .padding(24)
+                .background(.ultraThinMaterial)
+                .cornerRadius(16)
+                .transition(.scale.combined(with: .opacity))
+            }
+            
         }
         .onAppear {
             // Initialize the countdown clock with the video's JSON duration
             self.secondsRemaining = video.duration
         }
         .task(id: isActiveVideoId) {
-                    if isActive {
-                        // The moment this ID matches, force immediate play execution
-                        player?.play()
-                    } else {
-                        // The moment it moves off-screen, instantly pause and rewind
-                        player?.pause()
-                        player?.seek(to: .zero)
-                        self.isPlayerReady = false
-                    }
+            if isActive {
+                // The moment this ID matches, force immediate play execution
+                player?.play()
+            } else {
+                // The moment it moves off-screen, instantly pause and rewind
+                player?.pause()
+                player?.seek(to: .zero)
+                self.isPlayerReady = false
+            }
         }
         .task(id: player) {
-                    guard let player = player else { return }
+            guard let player = player else { return }
+            
+            // Loop and wait natively for AVPlayer to warm up its network stream
+            while isActive {
+                if player.currentItem?.status == .readyToPlay {
+                    self.isLoading = false
+                    self.isPlayerReady = false // Set true if you hide via opacity layout filters
                     
-                    // Loop and wait natively for AVPlayer to warm up its network stream
-                    while isActive {
-                        if player.currentItem?.status == .readyToPlay {
-                            self.isLoading = false
-                            self.isPlayerReady = false // Set true if you hide via opacity layout filters
-                            
-                            if isActive {
-                                player.play() // Double-check safety play call
-                            }
-                            break // Stream is stable, exit monitoring loop safely
-                        } else if player.currentItem?.status == .failed {
-                            self.isLoading = false
-                            self.isError = true
-                            break
-                        }
-                        
-                        // Sleep for 100 milliseconds before inspecting player stream frames again
-                        try? await Task.sleep(for: .milliseconds(100))
+                    if isActive {
+                        player.play() // Double-check safety play call
+                    }
+                    break // Stream is stable, exit monitoring loop safely
+                } else if player.currentItem?.status == .failed {
+                    self.isLoading = false
+                    self.isError = true
+                    break
+                }
+                
+                // Sleep for 100 milliseconds before inspecting player stream frames again
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+        }
+        .gesture(
+            DragGesture(minimumDistance: 20, coordinateSpace: .local)
+                .onChanged { value in
+                    // Only intercept if movement is primarily horizontal, not vertical scrolling
+                    guard isActive, abs(value.translation.width) > abs(value.translation.height) else { return }
+                    
+                    if !isDraggingHorizontal {
+                        isDraggingHorizontal = true
+                    }
+                    
+                    self.dragOffset = value.translation.width
+                    
+                    // Map drag width to seconds skipped (e.g., 15 points dragged = 1 second skipped)
+                    let calculatedSeconds = Int(value.translation.width / 15)
+                    self.seekPreviewSeconds = calculatedSeconds
+                }
+                .onEnded { value in
+                    guard isDraggingHorizontal, let player = player else { return }
+                    
+                    let duration = player.currentItem?.duration.seconds ?? Double(video.duration)
+                    let finalDuration = duration.isNaN ? Double(video.duration) : duration
+                    let currentTime = player.currentTime().seconds
+                    
+                    // Calculate the new destination timestamp securely bounded between 0 and video length
+                    let newTargetTime = max(0, min(currentTime + Double(seekPreviewSeconds), finalDuration))
+                    
+                    // Force the immediate underlying video asset seek jump
+                    player.seek(to: CMTime(seconds: newTargetTime, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
+                    
+                    // Update remaining text display instantly
+                    self.secondsRemaining = max(0, Int(ceil(finalDuration - newTargetTime)))
+                    
+                    // Smoothly animate out the preview bubble wrapper
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        isDraggingHorizontal = false
+                        dragOffset = 0
+                        seekPreviewSeconds = 0
                     }
                 }
+        )
         // Respond instantly when the feed scrolls to this item
         .onChange(of: isActive, initial: true) { _, newValue in
             handlePlayback(shouldPlay: newValue)
@@ -172,7 +243,7 @@ struct VideoFeedItemView: View {
         }
         .onReceive(countdownTimer) { _ in
             // Only query the player if this video item is active on screen and playing
-            guard isActive, isPlayerReady, let player = player, player.rate != 0 else { return }
+            guard isActive, isPlayerReady, let player = player, player.rate != 0, !isDraggingHorizontal else { return }
             
             // Extract the current render time directly from the active AVPlayer engine
             let currentTimeInSeconds = player.currentTime().seconds
@@ -208,6 +279,11 @@ struct VideoFeedItemView: View {
                 }
             }
         }
+        .alert("Feature Coming Soon", isPresented: $showComingSoonAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Engagement modules (Likes, Comments, and Sharing) are currently being finalized for production rollout.")
+        }
     }
     
     private func handlePlayback(shouldPlay: Bool) {
@@ -231,23 +307,23 @@ struct VideoFeedItemView: View {
                     switch status {
                     case .readyToPlay:
                         DispatchQueue.main.async {
-                                self.isLoading = false
-                                self.isPlayerReady = true
+                            self.isLoading = false
+                            self.isPlayerReady = true
+                            
+                            // 🎯 AUTOPLAY ENFORCEMENT:
+                            // If this item is flagged active on launch, trigger immediate execution
+                            if self.isActive {
+                                self.player?.play()
                                 
-                                // 🎯 AUTOPLAY ENFORCEMENT:
-                                // If this item is flagged active on launch, trigger immediate execution
-                                if self.isActive {
-                                    self.player?.play()
-                                    
-                                    // Instantly synchronize your direct heartbeat time layout properties
-                                    if let player = self.player {
-                                        let current = player.currentTime().seconds
-                                        let duration = player.currentItem?.duration.seconds ?? Double(video.duration)
-                                        let finalDuration = duration.isNaN ? Double(video.duration) : duration
-                                        self.secondsRemaining = max(0, Int(ceil(finalDuration - current)))
-                                    }
+                                // Instantly synchronize your direct heartbeat time layout properties
+                                if let player = self.player {
+                                    let current = player.currentTime().seconds
+                                    let duration = player.currentItem?.duration.seconds ?? Double(video.duration)
+                                    let finalDuration = duration.isNaN ? Double(video.duration) : duration
+                                    self.secondsRemaining = max(0, Int(ceil(finalDuration - current)))
                                 }
                             }
+                        }
                     case .failed:
                         self.isLoading = false
                         self.isError = true
