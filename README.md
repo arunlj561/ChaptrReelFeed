@@ -3,7 +3,7 @@
 A highly optimized, full-screen vertical scrolling video feed built using native Swift and SwiftUI. This implementation prioritizes seamless 60fps scrolling performance, strict memory safety via active item purging, synchronized stream-derived countdown metrics, and state persistence.
 
 ### 🎥 Narration & Code Walkthrough
-* **Video Demonstration URL:** [INSERT YOUR LOOM/VIDEO LINK HERE]
+* **Video Demonstration URL:** https://youtu.be/9YYSL9GbiEc
 
 ---
 
@@ -66,9 +66,3 @@ Instead of relying on third-party dependencies, this layout utilizes a custom-en
 1.  **Local Memory Management Boundaries:** Right now, the flat local JSON array is fully parsed in memory. If scaled to thousands of entries, it would cause memory bloat on initial boot. Solution: It must be swapped for an un-cached local SQL database sequence or a remote paginated API layout.
 2.  **Network Bandwidth Degradation:** Preloading 2 assets ahead can waste significant cellular data if users skip clips quickly. Scaling would necessitate dynamic stream bit-rate adjustments (HLS streams using `.m3u8` master files instead of straight `.mp4` file allocations).
 
----
-
-## 🔮 Future Roadmap (With Another Week)
-1.  **HLS & Adaptive Streaming:** Shift away from standalone static `.mp4` asset buffers and implement HTTP Live Streaming (`HLS`) structures to smoothly match network speeds.
-2.  **Disk-Based LRU Caching:** Set up a permanent, local disk-cache directory using a Least Recently Used (`LRU`) algorithm. This would let the app save video chunks directly to local storage, cutting down network data usage when users loop back to re-watch clips.
-3.  **Bi-directional Prefetching Analysis:** Track the velocity of the user's scroll gestures to intelligently double preloading limits when rapid swiping patterns are detected.
